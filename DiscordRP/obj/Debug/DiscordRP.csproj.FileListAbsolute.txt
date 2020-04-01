@@ -1,0 +1,11 @@
+C:\Users\DoctorOne\source\repos\DiscordRP\DiscordRP\obj\Debug\DiscordRP.csprojAssemblyReference.cache
+C:\Users\DoctorOne\source\repos\DiscordRP\DiscordRP\obj\Debug\DiscordRP.csproj.CoreCompileInputs.cache
+C:\Users\DoctorOne\source\repos\DiscordRP\DiscordRP\obj\Debug\DiscordRP.csproj.CopyComplete
+C:\Users\DoctorOne\source\repos\DiscordRP\DiscordRP\obj\Debug\DiscordRP.dll
+C:\Users\DoctorOne\source\repos\DiscordRP\DiscordRP\obj\Debug\DiscordRP.pdb
+D:\SteamLibrary\steamapps\common\Mount & Blade II Bannerlord\Modules\DiscordRichPresence\bin\DiscordRP.dll.config
+D:\SteamLibrary\steamapps\common\Mount & Blade II Bannerlord\Modules\DiscordRichPresence\bin\DiscordRP.dll
+D:\SteamLibrary\steamapps\common\Mount & Blade II Bannerlord\Modules\DiscordRichPresence\bin\DiscordRP.pdb
+D:\SteamLibrary\steamapps\common\Mount & Blade II Bannerlord\Modules\DiscordRP\bin\Win64_Shipping_Client\DiscordRP.dll.config
+D:\SteamLibrary\steamapps\common\Mount & Blade II Bannerlord\Modules\DiscordRP\bin\Win64_Shipping_Client\DiscordRP.dll
+D:\SteamLibrary\steamapps\common\Mount & Blade II Bannerlord\Modules\DiscordRP\bin\Win64_Shipping_Client\DiscordRP.pdb
