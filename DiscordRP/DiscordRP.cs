@@ -31,12 +31,12 @@ namespace DiscordRP
             base.OnGameLoaded(game, gameStarterObject);
             client.SetPresence(new RichPresence()
             {
-                Details = "In Campaing",
+                Details = "In Campaign",
                 Timestamps = Timestamps.Now,
                 Assets = new Assets()
                 {
                     LargeImageKey = "bannerlord",
-                    LargeImageText = "In Campaing",
+                    LargeImageText = "In Campaign",
                 }
             });
             isPlayerFirst = true;
@@ -133,12 +133,12 @@ namespace DiscordRP
                             inMenuFirst = true;
                             client.SetPresence(new RichPresence()
                             {
-                                Details = "In Campaing" + agentName,
+                                Details = "In Campaign" + agentName,
                                 Timestamps = Timestamps.Now,
                                 Assets = new Assets()
                                 {
                                     LargeImageKey = "bannerlord",
-                                    LargeImageText = "In Campaing at Open World",
+                                    LargeImageText = "In Campaign at Open World",
                                 }
                             });
                             inMenuFirst = true;
