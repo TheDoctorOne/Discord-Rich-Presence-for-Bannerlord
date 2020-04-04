@@ -30,9 +30,14 @@ namespace DiscordRP
          * 3 : M&B II: Bannerlord
          * 4 : Bannerlord
          */
+        int debugMode = 0;
 
         protected override void OnSubModuleLoad()
         {
+            if (System.Diagnostics.Debugger.IsAttached)
+            {
+                debugMode = 1;
+            }
             init();
         }
 
@@ -56,6 +61,7 @@ namespace DiscordRP
             client.SetPresence(new RichPresence()
             {
                 Details = loader.INSTANCE.inCampaign,
+                State = debugMode == 1 ? "In Debug Mode" : "",
                 Timestamps = Timestamps.Now,
                 Assets = new Assets()
                 {
@@ -96,6 +102,7 @@ namespace DiscordRP
             client.SetPresence(new RichPresence()
             {
                 Details = loader.INSTANCE.Loading,
+                State = debugMode == 1 ? "In Debug Mode" : "",
                 Timestamps = Timestamps.Now,
                 Assets = new Assets()
                 {
@@ -106,6 +113,8 @@ namespace DiscordRP
 
             inMenuFirst = true;
         }
+
+
 
         private bool inMenuFirst = true;
         private bool isPlayerFirst = true;
@@ -123,6 +132,7 @@ namespace DiscordRP
                         client.SetPresence(new RichPresence()
                         {
                             Details = loader.INSTANCE.inMenu,
+                            State = debugMode == 1 ? "In Debug Mode" : "",
                             Timestamps = Timestamps.Now,
                             Assets = new Assets()
                             {
@@ -146,6 +156,7 @@ namespace DiscordRP
                             client.SetPresence(new RichPresence()
                             {
                                 Details = Regex.Replace(loader.INSTANCE.inInstanceAsPlayer, "&p", agentName),
+                                State = debugMode == 1 ? "In Debug Mode" : "",
                                 Timestamps = Timestamps.Now,
                                 Assets = new Assets()
                                 {
@@ -163,6 +174,7 @@ namespace DiscordRP
                                 client.SetPresence(new RichPresence()
                                 {
                                     Details = Regex.Replace(loader.INSTANCE.inCampaignAsPlayer, "&p", agentName),
+                                    State = debugMode == 1 ? "In Debug Mode" : "",
                                     Timestamps = Timestamps.Now,
                                     Assets = new Assets()
                                     {
@@ -174,6 +186,7 @@ namespace DiscordRP
                                 client.SetPresence(new RichPresence()
                                 {
                                     Details = loader.INSTANCE.inCampaign,
+                                    State = debugMode == 1 ? "In Debug Mode" : "",
                                     Timestamps = Timestamps.Now,
                                     Assets = new Assets()
                                     {
