@@ -28,3 +28,4 @@ DiscordRP/bin/
 *.pidb
 *.svclog
 *.scc
+.vscode

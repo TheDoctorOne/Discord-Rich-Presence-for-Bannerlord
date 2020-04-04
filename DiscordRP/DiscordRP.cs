@@ -1,4 +1,4 @@
-﻿using DiscordRPC;
+using DiscordRPC;
 using DiscordRPC.Logging;
 using System;
 using System.Windows.Forms;
@@ -64,6 +64,13 @@ namespace DiscordRP
                 }
             });
             isPlayerFirst = true;
+        }
+        
+        
+        public override void OnGameEnd(Game game)
+        {
+            base.OnGameEnd(game);
+            client.Dispose();
         }
 
         private void init(int id)
