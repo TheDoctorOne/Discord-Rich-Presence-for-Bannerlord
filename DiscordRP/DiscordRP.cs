@@ -73,9 +73,8 @@ namespace DiscordRP
         }
         
         
-        public override void OnGameEnd(Game game)
+        protected override void OnSubModuleUnloaded()
         {
-            base.OnGameEnd(game);
             client.Dispose();
         }
 
