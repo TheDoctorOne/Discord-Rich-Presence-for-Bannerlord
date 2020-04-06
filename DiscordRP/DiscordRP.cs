@@ -55,12 +55,14 @@ namespace DiscordRP
 
 
 
-        protected override void OnGameStart(Game game, IGameStarter gameStarterObject)
+        public override void OnGameInitializationFinished(Game game)
         {
-            base.OnGameLoaded(game, gameStarterObject);
+            base.OnGameInitializationFinished(game);
+            setPresence(loader.INSTANCE.inCampaign);
+            /*
             client.SetPresence(new RichPresence()
             {
-                Details = loader.INSTANCE.inCampaign,
+                Details = (loader.INSTANCE.inCampaign),
                 State = debugMode == 1 ? "In Debug Mode" : "",
                 Timestamps = Timestamps.Now,
                 Assets = new Assets()
@@ -68,7 +70,7 @@ namespace DiscordRP
                     LargeImageKey = "bannerlord",
                     LargeImageText = loader.INSTANCE.inCampaign,
                 }
-            });
+            });*/
             isPlayerFirst = true;
         }
         
@@ -97,18 +99,7 @@ namespace DiscordRP
             };
 
             client.Initialize();
-
-            client.SetPresence(new RichPresence()
-            {
-                Details = loader.INSTANCE.Loading,
-                State = debugMode == 1 ? "In Debug Mode" : "",
-                Timestamps = Timestamps.Now,
-                Assets = new Assets()
-                {
-                    LargeImageKey = "bannerlord",
-                    LargeImageText = loader.INSTANCE.Loading,
-                }
-            });
+            setPresence(loader.INSTANCE.Loading);
 
             inMenuFirst = true;
         }
@@ -128,17 +119,7 @@ namespace DiscordRP
                     {
                         inMenuFirst = false;
                         isPlayerFirst = true;
-                        client.SetPresence(new RichPresence()
-                        {
-                            Details = loader.INSTANCE.inMenu,
-                            State = debugMode == 1 ? "In Debug Mode" : "",
-                            Timestamps = Timestamps.Now,
-                            Assets = new Assets()
-                            {
-                                LargeImageKey = "bannerlord",
-                                LargeImageText = loader.INSTANCE.inMenu,
-                            }
-                        });
+                        setPresence(loader.INSTANCE.inMenu);
                     }
                     else
                     {
@@ -146,56 +127,7 @@ namespace DiscordRP
                         {
                             inMenuFirst = true;
                         }
-                        if (Agent.Main != null && isPlayerFirst) // IN INSTANCE
-                        {
-                            if (Agent.Main.Name != null && !Agent.Main.Name.Equals(""))
-                                agentName = Agent.Main.Name;
-                            isPlayerFirst = false;
-                            inMenuFirst = true;
-                            client.SetPresence(new RichPresence()
-                            {
-                                Details = Regex.Replace(loader.INSTANCE.inInstanceAsPlayer, "&p", agentName),
-                                State = debugMode == 1 ? "In Debug Mode" : "",
-                                Timestamps = Timestamps.Now,
-                                Assets = new Assets()
-                                {
-                                    LargeImageKey = "bannerlord",
-                                    LargeImageText = Regex.Replace(loader.INSTANCE.inInstanceAsPlayer, "&p", agentName),
-                                }
-                            });
-                        }
-                        else if (Agent.Main == null && !isPlayerFirst) // IN CAMPAIGN
-                        {
-                            
-                            isPlayerFirst = true;
-                            inMenuFirst = true;
-                            if (agentName != null)
-                                client.SetPresence(new RichPresence()
-                                {
-                                    Details = Regex.Replace(loader.INSTANCE.inCampaignAsPlayer, "&p", agentName),
-                                    State = debugMode == 1 ? "In Debug Mode" : "",
-                                    Timestamps = Timestamps.Now,
-                                    Assets = new Assets()
-                                    {
-                                        LargeImageKey = "bannerlord",
-                                        LargeImageText = Regex.Replace(loader.INSTANCE.inCampaignAsPlayer, "&p", agentName),
-                                    }
-                                });
-                            else
-                                client.SetPresence(new RichPresence()
-                                {
-                                    Details = loader.INSTANCE.inCampaign,
-                                    State = debugMode == 1 ? "In Debug Mode" : "",
-                                    Timestamps = Timestamps.Now,
-                                    Assets = new Assets()
-                                    {
-                                        LargeImageKey = "bannerlord",
-                                        LargeImageText = loader.INSTANCE.inCampaign,
-                                    }
-                                });
-                            inMenuFirst = true;
-                            isPlayerFirst = true;
-                        }
+                        inCampaign();
                     }
                 }
                 else
@@ -203,6 +135,195 @@ namespace DiscordRP
                 }
         }
 
+        private void inCampaign()
+        {
+            if (Agent.Main != null && isPlayerFirst) // IN INSTANCE
+            {
+                if (Agent.Main.Name != null && !Agent.Main.Name.Equals(""))
+                    agentName = Agent.Main.Name;
+                isPlayerFirst = false;
+                inMenuFirst = true;
+                inInstance();
+            }
+            else if (Agent.Main == null && !isPlayerFirst) // IN CAMPAIGN
+            {
+
+                isPlayerFirst = true;
+                inMenuFirst = true;
+                if (agentName != null)
+                    setPresence(loader.INSTANCE.inCampaignAsPlayer);
+                else
+                    setPresence(loader.INSTANCE.inCampaign);
+                inMenuFirst = true;
+                isPlayerFirst = true;
+            }
+        }
+
+        private void inInstance()
+        {
+            if(Mission.Current != null)
+            {
+                String playerName = /*debugMode == 1 ? "In Debug Mode" :*/ Mission.Current.MainAgent.Name;
+                RichPresence presence = client.CurrentPresence;
+                initMission(Mission.Current);
+            }
+            //setPresence(loader.INSTANCE.inInstanceAsPlayer);
+        }
+
+        public void initMission(Mission mission, String playerName= "")
+        {
+            int ally = 0;
+            int enemies = 0;
+            String conversation = "";
+            float distanceWithMainAgent = 999999;
+            foreach(Agent agent in mission.AllAgents)
+            {
+                if (agent.IsEnemyOf(mission.MainAgent) && agent.IsHuman)
+                    enemies++;
+                else if (agent.IsHuman && agent.IsFriendOf(mission.MainAgent))
+                    ally++;
+                else if (agent.IsHuman) { }
+                
+                if(agent.IsAIControlled && agent.IsHuman && mission.SceneName.ToLower().Contains("conversation"))
+                {
+                    float tmp = agent.GetTrackDistanceToMainAgent();
+                    if (tmp < distanceWithMainAgent)
+                    {
+                        if (11 > tmp && tmp > 7)
+                        {
+                            distanceWithMainAgent = tmp;
+                            conversation = agent.Name;
+                        }
+                    }
+                }
+            }
+            // Mission CombatType has cool features.
+            if (mission.MainAgent != null && mission.MainAgent.Name != null)
+                playerName = mission.MainAgent.Name;
+            //if (mission.Mode == MissionMode.Conversation) { setPresence("In Conversation", playerName); }
+            if (mission.Mode == MissionMode.Duel) { setPresence("In Duel", playerName); }
+            else if (mission.Mode == MissionMode.Tournament) { setPresence("In Tournament against " + enemies + " enemies", playerName); }
+            else if (mission.CombatType == Mission.MissionCombatType.ArenaCombat) { setPresence("Fighting in Arena against " + enemies + " enemies", playerName); }
+            else if (mission.Mode == MissionMode.Barter) { setPresence("Bartering", playerName); }
+            else if (mission.Mode == MissionMode.Battle) { setPresence("In battle against " + enemies + " enemies", playerName); }
+            else if (mission.SceneName.ToLower().Contains("conversation"))
+            { // Conversation
+                String with = "";
+                if (!conversation.Trim().Equals(""))
+                {
+                    with = " with " + conversation;
+                }
+                setPresence("In Conversation" + with, playerName);
+            }
+            else if (mission.SceneName.ToLower().Contains("battle_terrain")) { setPresence("In battle against " + enemies + " enemies", playerName); }// battle
+            // Checking scene
+            else if (mission.SceneName.ToLower().Contains("arena")) { setPresence("In Arena", playerName); }// arena
+            else if (mission.SceneName.ToLower().Contains("tavern")) { setPresence("In Tavern", playerName); }// tavern
+            else if (mission.SceneName.ToLower().Contains("training_field")) { setPresence("At Training Field", playerName); }// training_field
+            else if (mission.SceneName.ToLower().Contains("town"))
+            {  // Town
+                if (mission.SceneName.ToLower().Contains("empire")) { setPresence("At Empire's Town", playerName); }// empire 
+                if (mission.SceneName.ToLower().Contains("khuzait")) { setPresence("At Khuzait's Town", playerName); }// khuzait 
+                if (mission.SceneName.ToLower().Contains("sturgia")) { setPresence("At Sturgia's Town", playerName); }// sturgia 
+                if (mission.SceneName.ToLower().Contains("vlandia")) { setPresence("At Vlandia's Town", playerName); }// vlandia 
+                if (mission.SceneName.ToLower().Contains("battania")) { setPresence("At Battania's Town", playerName); }// battania 
+                if (mission.SceneName.ToLower().Contains("aseria")) { setPresence("At Aseria's Town", playerName); }// aseria 
+            }
+            else if (mission.SceneName.ToLower().Contains("village"))
+            { // Village
+                if (mission.SceneName.ToLower().Contains("empire")) { setPresence("At Empire's Village", playerName); }// empire 
+                if (mission.SceneName.ToLower().Contains("khuzait")) { setPresence("At Khuzait's Village", playerName); }// khuzait 
+                if (mission.SceneName.ToLower().Contains("sturgia")) { setPresence("At Sturgia's Village", playerName); }// sturgia 
+                if (mission.SceneName.ToLower().Contains("vlandia")) { setPresence("At Vlandia's Village", playerName); }// vlandia 
+                if (mission.SceneName.ToLower().Contains("battania")) { setPresence("At Battania's Village", playerName); }// battania 
+                if (mission.SceneName.ToLower().Contains("aseria")) { setPresence("At Aseria's Village", playerName); }// aseria 
+            }
+            else if (mission.SceneName.ToLower().Contains("dungeon"))
+            { // Dungeon
+                if (mission.SceneName.ToLower().Contains("empire")) { setPresence("At Empire's Dungeon", playerName); }// empire 
+                if (mission.SceneName.ToLower().Contains("khuzait")) { setPresence("At Khuzait's Dungeon", playerName); }// khuzait 
+                if (mission.SceneName.ToLower().Contains("sturgia")) { setPresence("At Sturgia's Dungeon", playerName); }// sturgia 
+                if (mission.SceneName.ToLower().Contains("vlandia")) { setPresence("At Vlandia's Dungeon", playerName); }// vlandia 
+                if (mission.SceneName.ToLower().Contains("battania")) { setPresence("At Battania's Dungeon", playerName); }// battania 
+                if (mission.SceneName.ToLower().Contains("aseria")) { setPresence("At Aseria's Dungeon", playerName); }// aseria 
+            }
+            else if (mission.SceneName.ToLower().Contains("city"))
+            { // City
+                if (mission.SceneName.ToLower().Contains("empire")) { setPresence("At Empire's City", playerName); }// empire 
+                if (mission.SceneName.ToLower().Contains("khuzait")) { setPresence("At Khuzait's City", playerName); }// khuzait 
+                if (mission.SceneName.ToLower().Contains("sturgia")) { setPresence("At Sturgia's City", playerName); }// sturgia 
+                if (mission.SceneName.ToLower().Contains("vlandia")) { setPresence("At Vlandia's City", playerName); }// vlandia 
+                if (mission.SceneName.ToLower().Contains("battania")) { setPresence("At Battania's City", playerName); }// battania 
+                if (mission.SceneName.ToLower().Contains("aseria")) { setPresence("At Aseria's City", playerName); }// aseria 
+            }
+            else if (mission.SceneName.ToLower().Contains("castle"))
+            { // Castle
+                if (mission.SceneName.ToLower().Contains("empire")) { setPresence("At Empire's Castle", playerName); }// empire 
+                if (mission.SceneName.ToLower().Contains("khuzait")) { setPresence("At Khuzait's Castle", playerName); }// khuzait 
+                if (mission.SceneName.ToLower().Contains("sturgia")) { setPresence("At Sturgia's Castle", playerName); }// sturgia 
+                if (mission.SceneName.ToLower().Contains("vlandia")) { setPresence("At Vlandia's Castle", playerName); }// vlandia 
+                if (mission.SceneName.ToLower().Contains("battania")) { setPresence("At Battania's Castle", playerName); }// battania 
+                if (mission.SceneName.ToLower().Contains("aseria")) { setPresence("At Aseria's Castle", playerName); }// aseria 
+            }
+            else if (mission.SceneName.ToLower().Contains("hideout"))
+            { // hideout
+                if (mission.SceneName.ToLower().Contains("steppe")) { setPresence("Raiding Steppe Hideout", playerName); }// steppe 
+                if (mission.SceneName.ToLower().Contains("mountain")) { setPresence("Raiding Mountain Hideout", playerName); }// mountain 
+                if (mission.SceneName.ToLower().Contains("forest")) { setPresence("Raiding Forest Hideout", playerName); }// forest 
+                if (mission.SceneName.ToLower().Contains("desert")) { setPresence("Raiding Desert Hideout", playerName); }// desert 
+            }
+
+
+
+            /*MessageBox.Show(" Scene Name: " + mission.SceneName + "\n Field Battle: " + mission.IsFieldBattle + "\n Character Screen: " + mission.IsCharacterWindowAccessAllowed + 
+"\n Mission Mode: " + mission.Mode + "\n Enemy team leader name:" + mission.PlayerEnemyTeam.Leader.Name + "\n Active Agent Enemy Team:" + mission.PlayerEnemyTeam.ActiveAgents.Count);*/
+        }
+
+        public override void OnMissionBehaviourInitialize(Mission mission)
+        {
+            base.OnMissionBehaviourInitialize(mission);
+            initMission(mission);
+        }
+
+        private void setPresence(String details, String playerName)
+        {
+            if (client.IsInitialized)
+            {
+                if (playerName != null && !playerName.Equals("") && details.Contains("&p"))
+                    details = Regex.Replace(details, "&p", playerName);
+                client.SetPresence(new RichPresence()
+                {
+                    Details = details,
+                    State = !playerName.Trim().Equals("") ? "As " + playerName : "",
+                    Timestamps = Timestamps.Now,
+                    Assets = new Assets()
+                    {
+                        LargeImageKey = "bannerlord",
+                        LargeImageText = details,
+                    }
+                });
+            }
+        }
+
+        private void setPresence(String details)
+        {
+            if (client.IsInitialized)
+            {
+                if (agentName != null && !agentName.Equals(""))
+                    details = Regex.Replace(details, "&p", agentName);
+                client.SetPresence(new RichPresence()
+                {
+                    Details = details,
+                    State = debugMode == 1 ? "In Debug Mode" : "",
+                    Timestamps = Timestamps.Now,
+                    Assets = new Assets()
+                    {
+                        LargeImageKey = "bannerlord",
+                        LargeImageText = details,
+                    }
+                });
+            }
+        }
     }
 
     public class configLoader
@@ -253,7 +374,18 @@ namespace DiscordRP
             INSTANCE.Loading = "Loading...";
             INSTANCE.inCampaignAsPlayer = "In Campaign as &p";
 
-            String file = "{\r\n\t\"ConfigInformation\":[\r\n\t\t\"&p indicates in game 'playername'.\",\r\n\t\t\"Name Index : Game Name - select the way you want to show game name at Discord. Type the desired number to 'selectedName' section.\",\r\n\t\t\"0 : Mount & Blade II: Bannerlord,\",\r\n\t\t\"1 : Mount&Blade II: Bannerlord,\",\r\n\t\t\"2 : M & B II: Bannerlord,\",\r\n\t\t\"3 : M&B II: Bannerlord,\",\r\n\t\t\"4 : Bannerlord\"\r\n\t],\r\n\t\"selectedName\":\"0\",\r\n\t\"inCampaignAsPlayer\":\"In Campaign as &p\",\r\n\t\"inCampaign\":\"In Campaign\",\r\n\t\"Loading\":\"Loading...\",\r\n\t\"inMenu\":\"In Menu\",\r\n\t\"inInstance\":\"In Instance\",\r\n\t\"inInstanceAsPlayer\":\"In Instance as &p\"\r\n}";
+            String file = "{\r\n\t\"ConfigInformation\":[\r\n\t\t\"" +
+                "&p indicates in game 'playername'.\",\r\n\t\t\"" +
+                "Name Index : Game Name - select the way you want to show game name at Discord. " +
+                "Type the desired number to 'selectedName' section.\",\r\n\t\t\"0 " +
+                ": Mount & Blade II: Bannerlord,\",\r\n\t\t\"1 : Mount&Blade II: Bannerlord,\",\r\n\t\t\"" +
+                "2 : M & B II: Bannerlord,\",\r\n\t\t\"" +
+                "3 : M&B II: Bannerlord,\",\r\n\t\t\"" +
+                "4 : Bannerlord\"\r\n\t],\r\n\t\"selectedName\":\"0\",\r\n\t\"" +
+                "inCampaignAsPlayer\":\"In Campaign as &p\",\r\n\t\"inCampaign\":\"In Campaign\",\r\n\t\"Loading\":\"Loading...\"," +
+                "\r\n\t\"inMenu\":\"In Menu\",\r\n\t\"inInstance\":\"In Instance\"," +
+                "\r\n\t\"inInstanceAsPlayer\":\"In Instance as &p\"" +
+                "\r\n}";
             StreamWriter writer = new StreamWriter(path);
             writer.Write(file);
             writer.Close();
@@ -270,5 +402,8 @@ namespace DiscordRP
         public String inMenu;
         public String inInstance;
         public String inInstanceAsPlayer;
+        public String fightingAgainst;
+        public String conversation;
+        public String inLocation;
     }
 }
