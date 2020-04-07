@@ -11,15 +11,18 @@ using TaleWorlds.Localization;
 using TaleWorlds.MountAndBlade;
 using System.Threading;
 using TaleWorlds.Engine.Screens;
+using TaleWorlds.CampaignSystem;
 using System.IO;
 using Newtonsoft.Json;
 using System.Text.RegularExpressions;
+using TaleWorlds.Engine;
+using static TaleWorlds.MountAndBlade.Mission;
 
 namespace DiscordRP
 {
     public class DiscordRP : MBSubModuleBase
     {
-
+        int armySize = -1;
         static DiscordRpcClient client;
         private configLoader loader = new configLoader();
         private String[] clientIDs = { "694900832935739485", "695787558012977184", "695784986086735983", "695786091180982372", "695789819049017385" };
@@ -31,6 +34,7 @@ namespace DiscordRP
          * 4 : Bannerlord
          */
         int debugMode = 0;
+        int latestPresenceKey = 1010101;
 
         protected override void OnSubModuleLoad()
         {
@@ -55,23 +59,11 @@ namespace DiscordRP
 
 
 
-        public override void OnGameInitializationFinished(Game game)
+        protected override void OnGameStart(Game game, IGameStarter gameStarter)
         {
-            base.OnGameInitializationFinished(game);
-            setPresence(loader.INSTANCE.inCampaign);
-            /*
-            client.SetPresence(new RichPresence()
-            {
-                Details = (loader.INSTANCE.inCampaign),
-                State = debugMode == 1 ? "In Debug Mode" : "",
-                Timestamps = Timestamps.Now,
-                Assets = new Assets()
-                {
-                    LargeImageKey = "bannerlord",
-                    LargeImageText = loader.INSTANCE.inCampaign,
-                }
-            });*/
-            isPlayerFirst = true;
+            base.OnGameStart(game, gameStarter);
+            //Campaign campaign = game.GameType as Campaign;
+            //setPresence(loader.INSTANCE.inCampaignAsPlayer, "With Army of " + campaign.MainParty.Party.NumberOfAllMembers, campaign.MainParty.LeaderHero.Name.ToString(), 1);
         }
         
         
@@ -99,63 +91,58 @@ namespace DiscordRP
             };
 
             client.Initialize();
-            setPresence(loader.INSTANCE.Loading);
-
-            inMenuFirst = true;
+            setPresence(loader.INSTANCE.Loading, -1);
+            
         }
-
-
-
-        private bool inMenuFirst = true;
-        private bool isPlayerFirst = true;
-        private String agentName = "";
+        
         
         protected override void OnApplicationTick(float dt)
         {
-            if (client.IsInitialized)
+            try
+            {
+                if (client.IsInitialized)
                 if (GameStateManager.Current != null && GameStateManager.Current.ActiveState != null)
                 {
-                    if (GameStateManager.Current.ActiveState.IsMenuState && inMenuFirst) // MAIN MENU
+                    if (GameStateManager.Current.ActiveState.IsMenuState) // MAIN MENU
                     {
-                        inMenuFirst = false;
-                        isPlayerFirst = true;
-                        setPresence(loader.INSTANCE.inMenu);
+                        setPresence(loader.INSTANCE.inMenu, 0);
+                        
                     }
                     else
                     {
-                        if (!GameStateManager.Current.ActiveState.IsMenuState)
-                        {
-                            inMenuFirst = true;
-                        }
                         inCampaign();
                     }
                 }
                 else
                 {
                 }
+            }
+            catch { }
         }
 
         private void inCampaign()
         {
-            if (Agent.Main != null && isPlayerFirst) // IN INSTANCE
+            if (Mission.Current != null) // IN INSTANCE
             {
-                if (Agent.Main.Name != null && !Agent.Main.Name.Equals(""))
-                    agentName = Agent.Main.Name;
-                isPlayerFirst = false;
-                inMenuFirst = true;
                 inInstance();
             }
-            else if (Agent.Main == null && !isPlayerFirst) // IN CAMPAIGN
+            else if (Mission.Current == null) // open world
             {
-
-                isPlayerFirst = true;
-                inMenuFirst = true;
-                if (agentName != null)
-                    setPresence(loader.INSTANCE.inCampaignAsPlayer);
-                else
-                    setPresence(loader.INSTANCE.inCampaign);
-                inMenuFirst = true;
-                isPlayerFirst = true;
+                try
+                {
+                    List<CharacterObject> chrs = TournamentGame.GetParticipantCharacters(Settlement.CurrentSettlement, TournamentGame.ParticipantNumber); //Checking if tournament
+                    foreach (CharacterObject chr in chrs)
+                    {
+                        if (chr.IsPlayerCharacter)
+                        {
+                            return;
+                        }
+                    }
+                }
+                catch { }
+                if (Campaign.Current != null)
+                    setPresence(loader.INSTANCE.inCampaignAsPlayer, "With Army of " + (((int)Campaign.Current.MainParty.Party.NumberOfAllMembers)-1), Campaign.Current.MainParty.Leader.Name.ToString(), 4);
+                canEnter = true;
             }
         }
 
@@ -163,20 +150,34 @@ namespace DiscordRP
         {
             if(Mission.Current != null)
             {
-                String playerName = /*debugMode == 1 ? "In Debug Mode" :*/ Mission.Current.MainAgent.Name;
-                RichPresence presence = client.CurrentPresence;
                 initMission(Mission.Current);
             }
             //setPresence(loader.INSTANCE.inInstanceAsPlayer);
         }
 
+        private int latestAllyCount = -1;
+        private int latestEnemyCount = -1;
+        private int latestArmySize = -1;
+        private bool canEnter = true;
+
         public void initMission(Mission mission, String playerName= "")
         {
+            if (Campaign.Current != null)
+                playerName = Campaign.Current.MainParty.Leader.ToString();
+            else if (mission.MainAgent != null)
+                playerName = mission.MainAgent.Name;
+
+            Agent closestAgent = null;
+            bool isBattle = false;
+            bool inTournament = false;
+            bool inDuel = false;
+            bool inArenaCombat = false;
+
             int ally = 0;
             int enemies = 0;
             String conversation = "";
             float distanceWithMainAgent = 999999;
-            foreach(Agent agent in mission.AllAgents)
+            foreach(Agent agent in mission.AllAgents.Where(t => t.Health > 0))
             {
                 if (agent.IsEnemyOf(mission.MainAgent) && agent.IsHuman)
                     enemies++;
@@ -189,6 +190,7 @@ namespace DiscordRP
                     float tmp = agent.GetTrackDistanceToMainAgent();
                     if (tmp < distanceWithMainAgent)
                     {
+                        closestAgent = agent;
                         if (11 > tmp && tmp > 7)
                         {
                             distanceWithMainAgent = tmp;
@@ -197,80 +199,247 @@ namespace DiscordRP
                     }
                 }
             }
+            if (ally != latestAllyCount)
+            {
+                latestAllyCount = ally;
+            }
+            if (enemies != latestEnemyCount)
+            {
+                latestEnemyCount = enemies;
+            }
             // Mission CombatType has cool features.
-            if (mission.MainAgent != null && mission.MainAgent.Name != null)
-                playerName = mission.MainAgent.Name;
             //if (mission.Mode == MissionMode.Conversation) { setPresence("In Conversation", playerName); }
-            if (mission.Mode == MissionMode.Duel) { setPresence("In Duel", playerName); }
-            else if (mission.Mode == MissionMode.Tournament) { setPresence("In Tournament against " + enemies + " enemies", playerName); }
-            else if (mission.CombatType == Mission.MissionCombatType.ArenaCombat) { setPresence("Fighting in Arena against " + enemies + " enemies", playerName); }
-            else if (mission.Mode == MissionMode.Barter) { setPresence("Bartering", playerName); }
-            else if (mission.Mode == MissionMode.Battle) { setPresence("In battle against " + enemies + " enemies", playerName); }
-            else if (mission.SceneName.ToLower().Contains("conversation"))
+
+            if (mission.Mode == MissionMode.Duel) { inDuel = true; }
+            else if (mission.Mode == MissionMode.Tournament) { inTournament = true; }
+            else if (mission.CombatType == Mission.MissionCombatType.ArenaCombat) { inArenaCombat = true; }
+            else if (mission.Mode == MissionMode.Barter) { setPresence("Bartering", "",playerName, 8); }
+            else if (mission.Mode == MissionMode.Battle) { isBattle = true; }
+            String currentPlace = "";
+            if (Settlement.CurrentSettlement != null) //Thanks to Aeurias, did not notice Settlement in API. 
+            {
+                currentPlace = Settlement.CurrentSettlement.Name.ToString();
+            }
+            //Scene Checking Begins - aka where the character is
+            if (mission.SceneName.ToLower().Contains("conversation"))
             { // Conversation
                 String with = "";
                 if (!conversation.Trim().Equals(""))
                 {
                     with = " with " + conversation;
                 }
-                setPresence("In Conversation" + with, playerName);
+                setPresence("In Conversation" + with, "As " + playerName, playerName, 95);
+                return;
             }
-            else if (mission.SceneName.ToLower().Contains("battle_terrain")) { setPresence("In battle against " + enemies + " enemies", playerName); }// battle
-            // Checking scene
-            else if (mission.SceneName.ToLower().Contains("arena")) { setPresence("In Arena", playerName); }// arena
-            else if (mission.SceneName.ToLower().Contains("tavern")) { setPresence("In Tavern", playerName); }// tavern
-            else if (mission.SceneName.ToLower().Contains("training_field")) { setPresence("At Training Field", playerName); }// training_field
+            else if(inDuel)
+            {
+                String details = "In Duel";
+                if (closestAgent != null)
+                    details += " against " + closestAgent.Name;
+                setPresence(details, "As " + playerName, playerName, 99);
+            }
+            else if (mission.SceneName.ToLower().Contains("battle_terrain"))
+            { // battle
+                setPresence("In battle against " + mission.PlayerEnemyTeam.ActiveAgents.Count + " enemies", "As " + playerName, playerName, 96);
+                return;
+            }
+            else if (mission.SceneName.ToLower().Contains("arena"))
+            { // arena
+                String details = "In Arena ";
+                String state = "";
+                if(!currentPlace.Equals(""))
+                {
+                    details += "at " + currentPlace;
+                }
+                if (!inArenaCombat && !playerName.Equals(""))
+                    state = "As " + playerName;
+                else if (inArenaCombat)
+                {
+                    state = "Fighting as " + playerName;
+                    state += "Against " + (mission.Agents.Count - 1);
+                }
+                if(Campaign.Current != null && Campaign.Current.TournamentManager != null && enemies>0)
+                {
+                    if (Settlement.CurrentSettlement != null)
+                        if (Settlement.CurrentSettlement.IsTown)
+                        {
+                            //TournamentGame tournament = Campaign.Current.TournamentManager.GetTournamentGame(Town.All.Where(x => x.Settlement.Name.ToString().Trim().Equals(Settlement.CurrentSettlement.Name.ToString().Trim())).ToList()[0]);
+                            List<CharacterObject> chrs = TournamentGame.GetParticipantCharacters(Settlement.CurrentSettlement, TournamentGame.ParticipantNumber);
+                            foreach(CharacterObject chr in chrs)
+                            {
+                                if(chr.IsPlayerCharacter)
+                                {
+                                    details = "In Tournament";
+                                    state = "Fighting as " + playerName;
+                                    if(enemies > 0)
+                                        details += " Against " + enemies;
+                                    break;
+                                }
+                            }
+                            
+                        }
+                }
+                setPresence(details, state, playerName, 90);
+                return;
+            }
+            else if (mission.SceneName.ToLower().Contains("tavern"))
+            {// tavern
+                String details = "In Tavern ";
+                String state = "";
+                if (!currentPlace.Equals(""))
+                {
+                    details += "at " + currentPlace;
+                }
+                state = "As " + playerName;
+                setPresence(details, state, playerName, 91);
+            }
+            else if (mission.SceneName.ToLower().Contains("training_field"))
+            {// training_field
+                String details = "In Training Field";
+                String state = "As " + playerName;;
+                setPresence(details, state, playerName, -69); //Training field is gay if you say otherwise you gay too.
+            }
             else if (mission.SceneName.ToLower().Contains("town"))
             {  // Town
-                if (mission.SceneName.ToLower().Contains("empire")) { setPresence("At Empire's Town", playerName); }// empire 
+                String details = "In Town";
+                String state = "";
+                if (!currentPlace.Equals(""))
+                {
+                    details = "In " + currentPlace;
+                }
+                state = "As " + playerName;
+                if (isBattle && mission.PlayerEnemyTeam != null && mission.PlayerEnemyTeam.ActiveAgents.Count < 8 && canEnter)
+                    state = "AMBUSHED!";
+                else if (isBattle && (mission.AttackerTeam.IsPlayerAlly || mission.AttackerTeam.IsPlayerTeam))
+                { // Conquering
+                    state = "In Siege Battle as " + playerName;
+                    canEnter = false;
+                }
+                else if (isBattle && (mission.DefenderTeam.IsPlayerAlly || mission.DefenderTeam.IsPlayerTeam))
+                { // Conquering
+                    state = "Defending as " + playerName;
+                    canEnter = false;
+                }
+                setPresence(details, state, playerName, 89);
+                /*if (mission.SceneName.ToLower().Contains("empire")) { setPresence("At Empire's Town", playerName); }// empire 
                 if (mission.SceneName.ToLower().Contains("khuzait")) { setPresence("At Khuzait's Town", playerName); }// khuzait 
                 if (mission.SceneName.ToLower().Contains("sturgia")) { setPresence("At Sturgia's Town", playerName); }// sturgia 
                 if (mission.SceneName.ToLower().Contains("vlandia")) { setPresence("At Vlandia's Town", playerName); }// vlandia 
                 if (mission.SceneName.ToLower().Contains("battania")) { setPresence("At Battania's Town", playerName); }// battania 
-                if (mission.SceneName.ToLower().Contains("aseria")) { setPresence("At Aseria's Town", playerName); }// aseria 
+                if (mission.SceneName.ToLower().Contains("aseria")) { setPresence("At Aseria's Town", playerName); }// aseria */
             }
             else if (mission.SceneName.ToLower().Contains("village"))
             { // Village
-                if (mission.SceneName.ToLower().Contains("empire")) { setPresence("At Empire's Village", playerName); }// empire 
-                if (mission.SceneName.ToLower().Contains("khuzait")) { setPresence("At Khuzait's Village", playerName); }// khuzait 
-                if (mission.SceneName.ToLower().Contains("sturgia")) { setPresence("At Sturgia's Village", playerName); }// sturgia 
-                if (mission.SceneName.ToLower().Contains("vlandia")) { setPresence("At Vlandia's Village", playerName); }// vlandia 
-                if (mission.SceneName.ToLower().Contains("battania")) { setPresence("At Battania's Village", playerName); }// battania 
-                if (mission.SceneName.ToLower().Contains("aseria")) { setPresence("At Aseria's Village", playerName); }// aseria 
+                String details = "In Village";
+                String state = "";
+                if (!currentPlace.Equals(""))
+                {
+                    details = "In " + currentPlace;
+                }
+                state = "As " + playerName;
+                if (isBattle && mission.PlayerEnemyTeam != null && mission.PlayerEnemyTeam.ActiveAgents.Count < 8 && canEnter)
+                    state = "AMBUSHED!";
+                else if (isBattle)
+                { // Helping village
+                    state = "Saving Village from Bandits as " + playerName;
+                    canEnter = false;
+                }
+                setPresence(details, state, playerName, 89);
+                /* if (mission.SceneName.ToLower().Contains("empire")) { setPresence("At Empire's Village", playerName); }// empire 
+                 if (mission.SceneName.ToLower().Contains("khuzait")) { setPresence("At Khuzait's Village", playerName); }// khuzait 
+                 if (mission.SceneName.ToLower().Contains("sturgia")) { setPresence("At Sturgia's Village", playerName); }// sturgia 
+                 if (mission.SceneName.ToLower().Contains("vlandia")) { setPresence("At Vlandia's Village", playerName); }// vlandia 
+                 if (mission.SceneName.ToLower().Contains("battania")) { setPresence("At Battania's Village", playerName); }// battania 
+                 if (mission.SceneName.ToLower().Contains("aseria")) { setPresence("At Aseria's Village", playerName); }// aseria */
             }
             else if (mission.SceneName.ToLower().Contains("dungeon"))
             { // Dungeon
-                if (mission.SceneName.ToLower().Contains("empire")) { setPresence("At Empire's Dungeon", playerName); }// empire 
+                String details = "In Dungeon ";
+                String state = "";
+                if (!currentPlace.Equals(""))
+                {
+                    details += "at " + currentPlace;
+                }
+                state = "As " + playerName;
+                setPresence(details, state, playerName, 88);
+                /*if (mission.SceneName.ToLower().Contains("empire")) { setPresence("At Empire's Dungeon", playerName); }// empire 
                 if (mission.SceneName.ToLower().Contains("khuzait")) { setPresence("At Khuzait's Dungeon", playerName); }// khuzait 
                 if (mission.SceneName.ToLower().Contains("sturgia")) { setPresence("At Sturgia's Dungeon", playerName); }// sturgia 
                 if (mission.SceneName.ToLower().Contains("vlandia")) { setPresence("At Vlandia's Dungeon", playerName); }// vlandia 
                 if (mission.SceneName.ToLower().Contains("battania")) { setPresence("At Battania's Dungeon", playerName); }// battania 
-                if (mission.SceneName.ToLower().Contains("aseria")) { setPresence("At Aseria's Dungeon", playerName); }// aseria 
+                if (mission.SceneName.ToLower().Contains("aseria")) { setPresence("At Aseria's Dungeon", playerName); }// aseria */
             }
             else if (mission.SceneName.ToLower().Contains("city"))
             { // City
-                if (mission.SceneName.ToLower().Contains("empire")) { setPresence("At Empire's City", playerName); }// empire 
-                if (mission.SceneName.ToLower().Contains("khuzait")) { setPresence("At Khuzait's City", playerName); }// khuzait 
-                if (mission.SceneName.ToLower().Contains("sturgia")) { setPresence("At Sturgia's City", playerName); }// sturgia 
-                if (mission.SceneName.ToLower().Contains("vlandia")) { setPresence("At Vlandia's City", playerName); }// vlandia 
-                if (mission.SceneName.ToLower().Contains("battania")) { setPresence("At Battania's City", playerName); }// battania 
-                if (mission.SceneName.ToLower().Contains("aseria")) { setPresence("At Aseria's City", playerName); }// aseria 
+                String details = "In City";
+                String state = "";
+                if (!currentPlace.Equals(""))
+                {
+                    details = "In " + currentPlace;
+                }
+                state = "As " + playerName;
+                if (isBattle && mission.PlayerEnemyTeam != null && mission.PlayerEnemyTeam.ActiveAgents.Count < 8 && canEnter)
+                    state = "AMBUSHED!";
+                else if (isBattle && (mission.AttackerTeam.IsPlayerAlly || mission.AttackerTeam.IsPlayerTeam))
+                { // Conquering
+                    state = "In Siege Battle as " + playerName;
+                    canEnter = false;
+                }
+                else if (isBattle && (mission.DefenderTeam.IsPlayerAlly || mission.DefenderTeam.IsPlayerTeam))
+                { // Conquering
+                    state = "Defending as " + playerName;
+                    canEnter = false;
+                }
+                setPresence(details, state, playerName, 87);
+                /* if (mission.SceneName.ToLower().Contains("empire")) { setPresence("At Empire's City", playerName); }// empire 
+                 if (mission.SceneName.ToLower().Contains("khuzait")) { setPresence("At Khuzait's City", playerName); }// khuzait 
+                 if (mission.SceneName.ToLower().Contains("sturgia")) { setPresence("At Sturgia's City", playerName); }// sturgia 
+                 if (mission.SceneName.ToLower().Contains("vlandia")) { setPresence("At Vlandia's City", playerName); }// vlandia 
+                 if (mission.SceneName.ToLower().Contains("battania")) { setPresence("At Battania's City", playerName); }// battania 
+                 if (mission.SceneName.ToLower().Contains("aseria")) { setPresence("At Aseria's City", playerName); }// aseria */
             }
             else if (mission.SceneName.ToLower().Contains("castle"))
             { // Castle
-                if (mission.SceneName.ToLower().Contains("empire")) { setPresence("At Empire's Castle", playerName); }// empire 
+                String details = "In Castle";
+                String state = "";
+                if (!currentPlace.Equals(""))
+                {
+                    details = "In " + currentPlace;
+                }
+                state = "As " + playerName;
+                if (isBattle && mission.PlayerEnemyTeam != null && mission.PlayerEnemyTeam.ActiveAgents.Count < 8 && canEnter)
+                    state = "AMBUSHED!";
+                else if (isBattle && (mission.AttackerTeam.IsPlayerAlly || mission.AttackerTeam.IsPlayerTeam))
+                { // Conquering
+                    state = "In Siege Battle as " + playerName;
+                    canEnter = false;
+                }
+                else if (isBattle && (mission.DefenderTeam.IsPlayerAlly || mission.DefenderTeam.IsPlayerTeam))
+                { // Conquering
+                    state = "Defending as " + playerName;
+                    canEnter = false;
+                }
+                setPresence(details, state, playerName, 86);
+                /*if (mission.SceneName.ToLower().Contains("empire")) { setPresence("At Empire's Castle", playerName); }// empire 
                 if (mission.SceneName.ToLower().Contains("khuzait")) { setPresence("At Khuzait's Castle", playerName); }// khuzait 
                 if (mission.SceneName.ToLower().Contains("sturgia")) { setPresence("At Sturgia's Castle", playerName); }// sturgia 
                 if (mission.SceneName.ToLower().Contains("vlandia")) { setPresence("At Vlandia's Castle", playerName); }// vlandia 
                 if (mission.SceneName.ToLower().Contains("battania")) { setPresence("At Battania's Castle", playerName); }// battania 
-                if (mission.SceneName.ToLower().Contains("aseria")) { setPresence("At Aseria's Castle", playerName); }// aseria 
+                if (mission.SceneName.ToLower().Contains("aseria")) { setPresence("At Aseria's Castle", playerName); }// aseria */
             }
             else if (mission.SceneName.ToLower().Contains("hideout"))
             { // hideout
-                if (mission.SceneName.ToLower().Contains("steppe")) { setPresence("Raiding Steppe Hideout", playerName); }// steppe 
-                if (mission.SceneName.ToLower().Contains("mountain")) { setPresence("Raiding Mountain Hideout", playerName); }// mountain 
-                if (mission.SceneName.ToLower().Contains("forest")) { setPresence("Raiding Forest Hideout", playerName); }// forest 
-                if (mission.SceneName.ToLower().Contains("desert")) { setPresence("Raiding Desert Hideout", playerName); }// desert 
+                String state = "As " + playerName;
+                if (mission.PlayerAllyTeam != null && mission.PlayerAllyTeam.ActiveAgents != null && mission.PlayerAllyTeam.ActiveAgents.Count > 1)
+                    state += " with " + mission.PlayerAllyTeam.ActiveAgents.Count + " Men";
+                if (mission.SceneName.ToLower().Contains("steppe")) { setPresence("Raiding Steppe Hideout", state, playerName, 85); }// steppe 
+                if (mission.SceneName.ToLower().Contains("mountain")) { setPresence("Raiding Mountain Hideout", state, playerName, 84); }// mountain 
+                if (mission.SceneName.ToLower().Contains("forest")) { setPresence("Raiding Forest Hideout", state, playerName, 83); }// forest 
+                if (mission.SceneName.ToLower().Contains("desert")) { setPresence("Raiding Desert Hideout", state, playerName, 82); }// desert
+            }
+            else if(mission.SceneName.ToLower().Contains("main_map"))
+            {
+                setPresence(loader.INSTANCE.inCampaignAsPlayer, "With Army of " + (((int)Campaign.Current.MainParty.Party.NumberOfAllMembers) - 1), Campaign.Current.MainParty.Leader.Name.ToString(), 4);
             }
 
 
@@ -285,17 +454,36 @@ namespace DiscordRP
             initMission(mission);
         }
 
-        private void setPresence(String details, String playerName)
+        private void setPresence(String details, String state, String playerName, int presenceKey, bool forceUpdate = false, Timestamps timestamps = null)
         {
+            if(presenceKey == latestPresenceKey)
+            {
+                /*if(!forceUpdate)
+                    return;*/
+            }
             if (client.IsInitialized)
             {
                 if (playerName != null && !playerName.Equals("") && details.Contains("&p"))
                     details = Regex.Replace(details, "&p", playerName);
+                if (Campaign.Current != null && Campaign.Current.MainParty != null && Campaign.Current.MainParty.Party != null)
+                    details = Regex.Replace(details, "&a", Campaign.Current.MainParty.Party.NumberOfAllMembers.ToString());
+                if (latestEnemyCount != -1)
+                    details = Regex.Replace(details, "&e", latestEnemyCount.ToString());
+                else
+                    details = Regex.Replace(details, "&e", "");
+
+                if (client.CurrentPresence.Details.Trim().Equals(details.Trim()) && client.CurrentPresence.State.Trim().Equals(state.Trim()))
+                    return;
+                if (!forceUpdate && (client.CurrentPresence.Details.Trim().Equals(details.Trim()) || client.CurrentPresence.State.Trim().Equals(state.Trim())))
+                    timestamps = client.CurrentPresence.Timestamps;
+
+                latestPresenceKey = presenceKey;
+                
                 client.SetPresence(new RichPresence()
                 {
                     Details = details,
-                    State = !playerName.Trim().Equals("") ? "As " + playerName : "",
-                    Timestamps = Timestamps.Now,
+                    State = state,
+                    Timestamps = timestamps != null ? timestamps : Timestamps.Now,
                     Assets = new Assets()
                     {
                         LargeImageKey = "bannerlord",
@@ -305,12 +493,21 @@ namespace DiscordRP
             }
         }
 
-        private void setPresence(String details)
+        private void setPresence(String details, int presenceKey, bool forceUpdate = false)
         {
-            if (client.IsInitialized)
+            if (client.IsInitialized && presenceKey != latestPresenceKey)
             {
-                if (agentName != null && !agentName.Equals(""))
-                    details = Regex.Replace(details, "&p", agentName);
+                if (Campaign.Current != null && Campaign.Current.MainParty != null && Campaign.Current.MainParty.Leader != null)
+                    details = Regex.Replace(details, "&p", Campaign.Current.MainParty.Leader.Name.ToString());
+                else
+                    details = Regex.Replace(details, "&p", "");
+                if (Campaign.Current != null && Campaign.Current.MainParty != null && Campaign.Current.MainParty.Party != null)
+                    details = Regex.Replace(details, "&a", Campaign.Current.MainParty.Party.NumberOfAllMembers.ToString());
+                if (latestEnemyCount != -1)
+                    details = Regex.Replace(details, "&e", latestEnemyCount.ToString());
+                else
+                    details = Regex.Replace(details, "&e", "");
+                latestPresenceKey = presenceKey;
                 client.SetPresence(new RichPresence()
                 {
                     Details = details,
@@ -402,8 +599,9 @@ namespace DiscordRP
         public String inMenu;
         public String inInstance;
         public String inInstanceAsPlayer;
-        public String fightingAgainst;
-        public String conversation;
-        public String inLocation;
+        public String inArenaAt;
+ //       public String fightingAgainst;
+ //       public String conversation;
+ //      public String inLocation;
     }
 }
