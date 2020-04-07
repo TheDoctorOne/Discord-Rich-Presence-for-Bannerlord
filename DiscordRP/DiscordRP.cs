@@ -237,6 +237,7 @@ namespace DiscordRP
                 if (closestAgent != null)
                     details += " against " + closestAgent.Name;
                 setPresence(details, "As " + playerName, playerName, 99);
+                return;
             }
             else if (mission.SceneName.ToLower().Contains("battle_terrain"))
             { // battle
@@ -292,12 +293,14 @@ namespace DiscordRP
                 }
                 state = "As " + playerName;
                 setPresence(details, state, playerName, 91);
+                return;
             }
             else if (mission.SceneName.ToLower().Contains("training_field"))
             {// training_field
                 String details = "In Training Field";
                 String state = "As " + playerName;;
                 setPresence(details, state, playerName, -69); //Training field is gay if you say otherwise you gay too.
+                return;
             }
             else if (mission.SceneName.ToLower().Contains("town"))
             {  // Town
@@ -321,6 +324,7 @@ namespace DiscordRP
                     canEnter = false;
                 }
                 setPresence(details, state, playerName, 89);
+                return;
                 /*if (mission.SceneName.ToLower().Contains("empire")) { setPresence("At Empire's Town", playerName); }// empire 
                 if (mission.SceneName.ToLower().Contains("khuzait")) { setPresence("At Khuzait's Town", playerName); }// khuzait 
                 if (mission.SceneName.ToLower().Contains("sturgia")) { setPresence("At Sturgia's Town", playerName); }// sturgia 
@@ -345,6 +349,7 @@ namespace DiscordRP
                     canEnter = false;
                 }
                 setPresence(details, state, playerName, 89);
+                return;
                 /* if (mission.SceneName.ToLower().Contains("empire")) { setPresence("At Empire's Village", playerName); }// empire 
                  if (mission.SceneName.ToLower().Contains("khuzait")) { setPresence("At Khuzait's Village", playerName); }// khuzait 
                  if (mission.SceneName.ToLower().Contains("sturgia")) { setPresence("At Sturgia's Village", playerName); }// sturgia 
@@ -362,6 +367,7 @@ namespace DiscordRP
                 }
                 state = "As " + playerName;
                 setPresence(details, state, playerName, 88);
+                return;
                 /*if (mission.SceneName.ToLower().Contains("empire")) { setPresence("At Empire's Dungeon", playerName); }// empire 
                 if (mission.SceneName.ToLower().Contains("khuzait")) { setPresence("At Khuzait's Dungeon", playerName); }// khuzait 
                 if (mission.SceneName.ToLower().Contains("sturgia")) { setPresence("At Sturgia's Dungeon", playerName); }// sturgia 
@@ -391,6 +397,7 @@ namespace DiscordRP
                     canEnter = false;
                 }
                 setPresence(details, state, playerName, 87);
+                return;
                 /* if (mission.SceneName.ToLower().Contains("empire")) { setPresence("At Empire's City", playerName); }// empire 
                  if (mission.SceneName.ToLower().Contains("khuzait")) { setPresence("At Khuzait's City", playerName); }// khuzait 
                  if (mission.SceneName.ToLower().Contains("sturgia")) { setPresence("At Sturgia's City", playerName); }// sturgia 
@@ -420,6 +427,7 @@ namespace DiscordRP
                     canEnter = false;
                 }
                 setPresence(details, state, playerName, 86);
+                return;
                 /*if (mission.SceneName.ToLower().Contains("empire")) { setPresence("At Empire's Castle", playerName); }// empire 
                 if (mission.SceneName.ToLower().Contains("khuzait")) { setPresence("At Khuzait's Castle", playerName); }// khuzait 
                 if (mission.SceneName.ToLower().Contains("sturgia")) { setPresence("At Sturgia's Castle", playerName); }// sturgia 
@@ -432,15 +440,14 @@ namespace DiscordRP
                 String state = "As " + playerName;
                 if (mission.PlayerAllyTeam != null && mission.PlayerAllyTeam.ActiveAgents != null && mission.PlayerAllyTeam.ActiveAgents.Count > 1)
                     state += " with " + mission.PlayerAllyTeam.ActiveAgents.Count + " Men";
-                if (mission.SceneName.ToLower().Contains("steppe")) { setPresence("Raiding Steppe Hideout", state, playerName, 85); }// steppe 
-                if (mission.SceneName.ToLower().Contains("mountain")) { setPresence("Raiding Mountain Hideout", state, playerName, 84); }// mountain 
-                if (mission.SceneName.ToLower().Contains("forest")) { setPresence("Raiding Forest Hideout", state, playerName, 83); }// forest 
-                if (mission.SceneName.ToLower().Contains("desert")) { setPresence("Raiding Desert Hideout", state, playerName, 82); }// desert
+                if (mission.SceneName.ToLower().Contains("steppe")) { setPresence("Raiding Steppe Hideout", state, playerName, 85);  return; }// steppe 
+                if (mission.SceneName.ToLower().Contains("mountain")) { setPresence("Raiding Mountain Hideout", state, playerName, 84); return; }// mountain 
+                if (mission.SceneName.ToLower().Contains("forest")) { setPresence("Raiding Forest Hideout", state, playerName, 83); return; }// forest 
+                if (mission.SceneName.ToLower().Contains("desert")) { setPresence("Raiding Desert Hideout", state, playerName, 82); return; }// desert
             }
-            else if(mission.SceneName.ToLower().Contains("main_map"))
-            {
+            else
                 setPresence(loader.INSTANCE.inCampaignAsPlayer, "With Army of " + (((int)Campaign.Current.MainParty.Party.NumberOfAllMembers) - 1), Campaign.Current.MainParty.Leader.Name.ToString(), 4);
-            }
+            
 
 
 
