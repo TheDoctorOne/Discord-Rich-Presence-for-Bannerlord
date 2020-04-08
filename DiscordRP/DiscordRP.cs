@@ -106,8 +106,7 @@ namespace DiscordRP
         
         protected override void OnApplicationTick(float dt)
         {
-            try
-            {
+            if(client != null)
                 if (client.IsInitialized)
                     if (GameStateManager.Current != null && GameStateManager.Current.ActiveState != null)
                     {
@@ -128,13 +127,15 @@ namespace DiscordRP
                 {
                     client.Initialize();
                 }
-            }
-            catch { }
+            else
+                {
+                    init();
+                }
         }
 
         private void inCampaign()
         {
-            if (Mission.Current != null) // IN INSTANCE
+            if (Agent.Main != null) // IN INSTANCE
             {
                 inInstance();
                 return;
@@ -143,18 +144,31 @@ namespace DiscordRP
             {
                 if (Campaign.Current != null)
                 {
-                    setPresence(loader.INSTANCE.inCampaignAsPlayer, "With Army of " + (((int)Campaign.Current.MainParty.Party.NumberOfAllMembers) - 1), Campaign.Current.MainParty.Leader.Name.ToString(), 4);
-                    canResetTournament = true;
-                    canEnterTournament = false;
+                    if (Campaign.Current.MainParty != null)
+                    {
+                        setPresence(loader.INSTANCE.inCampaignAsPlayer, "With Army of " + (((int)Campaign.Current.MainParty.Party.NumberOfAllMembers) - 1), Campaign.Current.MainParty.Leader.Name.ToString(), 4);
+                        canResetTournament = true;
+                        canEnterTournament = false;
+                    }
                 }
                 canEnter = false;
-                if (latestTournamentList == null)
+                if (latestTournamentList == null && Campaign.Current != null && Campaign.Current.TournamentManager != null && Town.All != null)
                 {
-                    var tm = Campaign.Current.TournamentManager;
-                    latestTournamentList = new List<TournamentGame>((List<TournamentGame>)tm.GetType().GetField("_activeTournaments", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(tm));
+                    //var tm = Campaign.Current.TournamentManager;
+                    //latestTournamentList = new List<TournamentGame>((List<TournamentGame>)tm.GetType().GetField("_activeTournaments", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(tm));
+                    TournamentGame tmp = null;
+                    latestTournamentList = new List<TournamentGame>();
+                    foreach(Town t in Town.All)
+                    {
+                        tmp = Campaign.Current.TournamentManager.GetTournamentGame(t);
+                        if(tmp != null)
+                        {
+                            latestTournamentList.Add(tmp);
+                        }
+                    }
                 }
             }
-            if(Campaign.Current != null)
+            if(Campaign.Current != null && Mission.Current == null)
             {
                 setPresence(loader.INSTANCE.inCampaignAsPlayer, "With Army of " + (((int)Campaign.Current.MainParty.Party.NumberOfAllMembers) - 1), Campaign.Current.MainParty.Leader.Name.ToString(), 4);
                 canResetTournament = true;
@@ -231,16 +245,25 @@ namespace DiscordRP
                 if (Settlement.CurrentSettlement != null)
                     if (Settlement.CurrentSettlement.IsTown)
                     {
-                        foreach (TournamentGame tournament in latestTournamentList)
-                        {
-                            if (tournament != null && tournament.Town.Name.ToString().Trim().Equals(currentPlace.Trim()))
+                        if(latestTournamentList != null)
+                            foreach (TournamentGame tournament in latestTournamentList)
                             {
-                                canEnterTournament = true;
-                                canResetTournament = false;
+                                if (tournament != null && tournament.Town.Name.ToString().Trim().Equals(currentPlace.Trim()))
+                                {
+                                    canEnterTournament = true;
+                                    canResetTournament = false;
+                                }
+                            }
+                        TournamentGame tmp = null;
+                        latestTournamentList = new List<TournamentGame>();
+                        foreach (Town t in Town.All)
+                        {
+                            tmp = Campaign.Current.TournamentManager.GetTournamentGame(t);
+                            if (tmp != null)
+                            {
+                                latestTournamentList.Add(tmp);
                             }
                         }
-                        var tm = Campaign.Current.TournamentManager;
-                        latestTournamentList = new List<TournamentGame>((List<TournamentGame>)tm.GetType().GetField("_activeTournaments", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(tm)); //Thanks to ̑🅠 and Cheyros at Taleworlds Modding Discord
                     }
             }
             if (mission.Mode == MissionMode.Duel) { inDuel = true; }
@@ -268,7 +291,10 @@ namespace DiscordRP
             }
             else if (mission.SceneName.ToLower().Contains("battle_terrain"))
             { // battle
-                setPresence("In battle against " + mission.PlayerEnemyTeam.ActiveAgents.Count + " enemies", "As " + playerName, playerName, 96);
+                if(enemies > 0)
+                    setPresence("In battle against " + enemies + " enemies", "As " + playerName, playerName, 96);
+                else
+                    setPresence("In battle", "As " + playerName, playerName, 96);
             }
             else if (mission.SceneName.ToLower().Contains("arena"))
             { // arena
@@ -322,18 +348,19 @@ namespace DiscordRP
                     details = "In " + currentPlace;
                 }
                 state = "As " + playerName;
-                if (isBattle && mission.PlayerEnemyTeam != null && mission.PlayerEnemyTeam.ActiveAgents.Count < 8 && canEnter)
-                    state = "AMBUSHED!";
-                else if (isBattle && (mission.AttackerTeam.IsPlayerAlly || mission.AttackerTeam.IsPlayerTeam))
-                { // Conquering
-                    state = "In Siege Battle as " + playerName;
-                    canEnter = false;
-                }
-                else if (isBattle && (mission.DefenderTeam.IsPlayerAlly || mission.DefenderTeam.IsPlayerTeam))
-                { // Conquering
-                    state = "Defending as " + playerName;
-                    canEnter = false;
-                }
+                if(mission.PlayerEnemyTeam != null && mission.DefenderTeam != null && mission.AttackerTeam != null)
+                    if (isBattle && mission.PlayerEnemyTeam != null && mission.PlayerEnemyTeam.ActiveAgents.Count < 8 && canEnter)
+                        state = "AMBUSHED!";
+                    else if (isBattle && (mission.AttackerTeam.IsPlayerAlly || mission.AttackerTeam.IsPlayerTeam))
+                    { // Conquering
+                        state = "In Siege Battle as " + playerName;
+                        canEnter = false;
+                    }
+                    else if (isBattle && (mission.DefenderTeam.IsPlayerAlly || mission.DefenderTeam.IsPlayerTeam))
+                    { // Conquering
+                        state = "Defending as " + playerName;
+                        canEnter = false;
+                    }
                 setPresence(details, state, playerName, 89);
                 /*if (mission.SceneName.ToLower().Contains("empire")) { setPresence("At Empire's Town", playerName); }// empire 
                 if (mission.SceneName.ToLower().Contains("khuzait")) { setPresence("At Khuzait's Town", playerName); }// khuzait 
@@ -471,11 +498,11 @@ namespace DiscordRP
 "\n Mission Mode: " + mission.Mode + "\n Enemy team leader name:" + mission.PlayerEnemyTeam.Leader.Name + "\n Active Agent Enemy Team:" + mission.PlayerEnemyTeam.ActiveAgents.Count);*/
         }
 
-        public override void OnMissionBehaviourInitialize(Mission mission)
+        /*public override void OnMissionBehaviourInitialize(Mission mission)
         {
             base.OnMissionBehaviourInitialize(mission);
             initMission(mission);
-        }
+        }*/
 
         private void setPresence(String details, String state, String playerName, int presenceKey, bool forceUpdate = false, Timestamps timestamps = null)
         {
@@ -497,7 +524,10 @@ namespace DiscordRP
 
                 if (client.CurrentPresence.Details.Trim().Equals(details.Trim()) && client.CurrentPresence.State.Trim().Equals(state.Trim()))
                     return;
-                if (!forceUpdate && (client.CurrentPresence.Details.Trim().Equals(details.Trim()) || client.CurrentPresence.State.Trim().Equals(state.Trim())))
+                if(client.CurrentPresence.Details != null && client.CurrentPresence.State != null && client.CurrentPresence.Timestamps != null)
+                if (!forceUpdate 
+                    && (client.CurrentPresence.Details.Trim().Equals(details.Trim()) 
+                    || client.CurrentPresence.State.Trim().Equals(state.Trim())))
                     timestamps = client.CurrentPresence.Timestamps;
 
                 latestPresenceKey = presenceKey;
