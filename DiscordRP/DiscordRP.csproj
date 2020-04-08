@@ -54,6 +54,7 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>D:\SteamLibrary\steamapps\common\Mount &amp; Blade II Bannerlord\bin\Win64_Shipping_Client\TaleWorlds.CampaignSystem.dll</HintPath>
     </Reference>
+    <!--<Reference Include="System.Core.Library", Version=4.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e />-->
     <Reference Include="TaleWorlds.CampaignSystem.ViewModelCollection, Version=1.0.0.0, Culture=neutral, processorArchitecture=AMD64">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>D:\SteamLibrary\steamapps\common\Mount &amp; Blade II Bannerlord\bin\Win64_Shipping_Client\TaleWorlds.CampaignSystem.ViewModelCollection.dll</HintPath>
