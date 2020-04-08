@@ -101,20 +101,24 @@ namespace DiscordRP
             try
             {
                 if (client.IsInitialized)
-                if (GameStateManager.Current != null && GameStateManager.Current.ActiveState != null)
-                {
-                    if (GameStateManager.Current.ActiveState.IsMenuState) // MAIN MENU
+                    if (GameStateManager.Current != null && GameStateManager.Current.ActiveState != null)
                     {
-                        setPresence(loader.INSTANCE.inMenu, 0);
+                        if (GameStateManager.Current.ActiveState.IsMenuState) // MAIN MENU
+                        {
+                            setPresence(loader.INSTANCE.inMenu, 0);
                         
+                        }
+                        else
+                        {
+                            inCampaign();
+                        }
                     }
                     else
                     {
-                        inCampaign();
                     }
-                }
-                else
+                else if (!client.IsInitialized)
                 {
+                    client.Initialize();
                 }
             }
             catch { }
@@ -527,6 +531,7 @@ namespace DiscordRP
                     }
                 });
             }
+            
         }
     }
 
@@ -572,8 +577,6 @@ namespace DiscordRP
             INSTANCE.ConfigInformation = info;
             INSTANCE.selectedName = "0";
             INSTANCE.inCampaign = "In Campaign";
-            INSTANCE.inInstance = "In Instance";
-            INSTANCE.inInstanceAsPlayer = "In Instance as &p";
             INSTANCE.inMenu = "In Menu";
             INSTANCE.Loading = "Loading...";
             INSTANCE.inCampaignAsPlayer = "In Campaign as &p";
@@ -604,9 +607,6 @@ namespace DiscordRP
         public String inCampaign;
         public String Loading;
         public String inMenu;
-        public String inInstance;
-        public String inInstanceAsPlayer;
-        public String inArenaAt;
  //       public String fightingAgainst;
  //       public String conversation;
  //      public String inLocation;
