@@ -18,6 +18,7 @@ using System.Text.RegularExpressions;
 using TaleWorlds.Engine;
 using static TaleWorlds.MountAndBlade.Mission;
 using System.Reflection;
+using System.Diagnostics;
 
 namespace DiscordRP
 {
@@ -146,7 +147,10 @@ namespace DiscordRP
                 {
                     if (Campaign.Current.MainParty != null)
                     {
-                        setPresence(loader.INSTANCE.inCampaignAsPlayer, "With Army of " + (((int)Campaign.Current.MainParty.Party.NumberOfAllMembers) - 1), Campaign.Current.MainParty.Leader.Name.ToString(), 4);
+                        if(Campaign.Current.MainParty.Party != null && Campaign.Current.MainParty.Leader != null)
+                            setPresence(loader.INSTANCE.inCampaignAsPlayer, "With Army of " + (((int)Campaign.Current.MainParty.Party.NumberOfAllMembers) - 1), Campaign.Current.MainParty.Leader.Name.ToString(), 4);
+                        else 
+                                setPresence(loader.INSTANCE.inCampaign, "In Captivity", "", -98);
                         canResetTournament = true;
                         canEnterTournament = false;
                     }
@@ -170,9 +174,15 @@ namespace DiscordRP
             }
             if(Campaign.Current != null && Mission.Current == null)
             {
-                setPresence(loader.INSTANCE.inCampaignAsPlayer, "With Army of " + (((int)Campaign.Current.MainParty.Party.NumberOfAllMembers) - 1), Campaign.Current.MainParty.Leader.Name.ToString(), 4);
-                canResetTournament = true;
-                canEnterTournament = false;
+                if (Campaign.Current.MainParty != null)
+                {
+                    if (Campaign.Current.MainParty.Party != null && Campaign.Current.MainParty.Leader != null)
+                        setPresence(loader.INSTANCE.inCampaignAsPlayer, "With Army of " + (((int)Campaign.Current.MainParty.Party.NumberOfAllMembers) - 1), Campaign.Current.MainParty.Leader.Name.ToString(), 4);
+                    else
+                        setPresence(loader.INSTANCE.inCampaign, "In Captivity", "", -98);
+                    canResetTournament = true;
+                    canEnterTournament = false;
+                }
             }
         }
 
@@ -269,7 +279,15 @@ namespace DiscordRP
             if (mission.Mode == MissionMode.Duel) { inDuel = true; }
             else if (mission.Mode == MissionMode.Tournament) { inTournament = true; }
             else if (mission.CombatType == Mission.MissionCombatType.ArenaCombat) { inArenaCombat = true; }
-            else if (mission.Mode == MissionMode.Barter) { setPresence("Bartering", "",playerName, 8); }
+            else if (mission.Mode == MissionMode.Barter) {
+                String with = "";
+                if (!conversation.Trim().Equals(""))
+                {
+                    with = " with " + conversation;
+                }
+                setPresence("Bartering" + with, "As " + playerName,playerName, 8);
+                return;
+            }
             else if (mission.Mode == MissionMode.Battle) { isBattle = true; }
             
             //Scene Checking Begins - aka where the character is
@@ -506,43 +524,50 @@ namespace DiscordRP
 
         private void setPresence(String details, String state, String playerName, int presenceKey, bool forceUpdate = false, Timestamps timestamps = null)
         {
-            if(presenceKey == latestPresenceKey)
+            try
             {
-                /*if(!forceUpdate)
-                    return;*/
-            }
-            if (client.IsInitialized)
-            {
-                if (playerName != null && !playerName.Equals("") && details.Contains("&p"))
-                    details = Regex.Replace(details, "&p", playerName);
-                if (Campaign.Current != null && Campaign.Current.MainParty != null && Campaign.Current.MainParty.Party != null)
-                    details = Regex.Replace(details, "&a", Campaign.Current.MainParty.Party.NumberOfAllMembers.ToString());
-                if (latestEnemyCount != -1)
-                    details = Regex.Replace(details, "&e", latestEnemyCount.ToString());
-                else
-                    details = Regex.Replace(details, "&e", "");
-
-                if (client.CurrentPresence.Details.Trim().Equals(details.Trim()) && client.CurrentPresence.State.Trim().Equals(state.Trim()))
-                    return;
-                if(client.CurrentPresence.Details != null && client.CurrentPresence.State != null && client.CurrentPresence.Timestamps != null)
-                if (!forceUpdate 
-                    && (client.CurrentPresence.Details.Trim().Equals(details.Trim()) 
-                    || client.CurrentPresence.State.Trim().Equals(state.Trim())))
-                    timestamps = client.CurrentPresence.Timestamps;
-
-                latestPresenceKey = presenceKey;
-                
-                client.SetPresence(new RichPresence()
+                if (presenceKey == latestPresenceKey)
                 {
-                    Details = details,
-                    State = state,
-                    Timestamps = timestamps != null ? timestamps : Timestamps.Now,
-                    Assets = new Assets()
+                    /*if(!forceUpdate)
+                        return;*/
+                }
+                if (client.IsInitialized)
+                {
+                    if (playerName != null && !playerName.Equals("") && details.Contains("&p"))
+                        details = Regex.Replace(details, "&p", playerName);
+                    if (Campaign.Current != null && Campaign.Current.MainParty != null && Campaign.Current.MainParty.Party != null)
+                        details = Regex.Replace(details, "&a", Campaign.Current.MainParty.Party.NumberOfAllMembers.ToString());
+                    if (latestEnemyCount != -1)
+                        details = Regex.Replace(details, "&e", latestEnemyCount.ToString());
+                    else
+                        details = Regex.Replace(details, "&e", "");
+                    if (client.CurrentPresence.Details != null && client.CurrentPresence.State != null)
+                        if (client.CurrentPresence.Details.Trim().Equals(details.Trim()) && client.CurrentPresence.State.Trim().Equals(state.Trim()))
+                            return;
+                    if (client.CurrentPresence.Details != null && client.CurrentPresence.State != null && client.CurrentPresence.Timestamps != null)
+                        if (!forceUpdate
+                            && (client.CurrentPresence.Details.Trim().Equals(details.Trim())
+                            || client.CurrentPresence.State.Trim().Equals(state.Trim())))
+                            timestamps = client.CurrentPresence.Timestamps;
+
+                    latestPresenceKey = presenceKey;
+
+                    client.SetPresence(new RichPresence()
                     {
-                        LargeImageKey = "bannerlord",
-                        LargeImageText = details,
-                    }
-                });
+                        Details = details,
+                        State = state,
+                        Timestamps = timestamps != null ? timestamps : Timestamps.Now,
+                        Assets = new Assets()
+                        {
+                            LargeImageKey = "bannerlord",
+                            LargeImageText = details,
+                        }
+                    });
+                }
+            }
+            catch(NullReferenceException ex)
+            {
+                Debug.WriteLine(ex.StackTrace);
             }
         }
 
