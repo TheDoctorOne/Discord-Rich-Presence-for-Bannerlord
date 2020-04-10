@@ -243,6 +243,14 @@ namespace DiscordRP
             {
                 latestEnemyCount = enemies;
             }
+            if(Game.Current != null && Game.Current.GameType is CustomGame) //Custom Game Detection
+            {
+                if(Agent.Main != null && Agent.Main.Health > -1)
+                    setPresence("In Custom Game", "As " + playerName, playerName, 122);
+                else
+                    setPresence("In Custom Game", "Watching", playerName, 122);
+                return;
+            }
             String currentPlace = "";
             if (Settlement.CurrentSettlement != null) //Thanks to Aeurias, did not notice Settlement in API. 
             {
