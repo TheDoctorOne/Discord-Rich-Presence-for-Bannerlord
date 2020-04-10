@@ -245,10 +245,10 @@ namespace DiscordRP
             }
             if(Game.Current != null && Game.Current.GameType is CustomGame) //Custom Game Detection
             {
-                if(Agent.Main != null && Agent.Main.Health > -1)
-                    setPresence("In Custom Game", "As " + playerName, playerName, 122);
+                if(Agent.Main != null && Agent.Main.Health > 0)
+                    setPresence("In Custom Battle" + ((enemies > 0) ? " Against" + enemies : ""), "As " + playerName + ((ally > 0) ? "with " + ally + " Men" : ""), playerName, 122);
                 else
-                    setPresence("In Custom Game", "Watching", playerName, 122);
+                    setPresence("In Custom Battle", "Watching", playerName, 122);
                 return;
             }
             String currentPlace = "";
