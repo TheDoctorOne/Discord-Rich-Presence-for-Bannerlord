@@ -52,6 +52,7 @@ namespace DiscordRP
                 debugMode = 1;
             }
             init();
+            Debug.WriteLine("Runned.");
         }
 
         public void init()
@@ -156,13 +157,13 @@ namespace DiscordRP
                     }
                 }
                 canEnter = false;
-                if (latestTournamentList == null && Campaign.Current != null && Campaign.Current.TournamentManager != null && Town.All != null)
+                if (latestTournamentList == null && Campaign.Current != null && Campaign.Current.TournamentManager != null && Town.AllTowns != null)
                 {
                     //var tm = Campaign.Current.TournamentManager;
                     //latestTournamentList = new List<TournamentGame>((List<TournamentGame>)tm.GetType().GetField("_activeTournaments", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(tm));
                     TournamentGame tmp = null;
                     latestTournamentList = new List<TournamentGame>();
-                    foreach(Town t in Town.All)
+                    foreach(Town t in Town.AllTowns)
                     {
                         tmp = Campaign.Current.TournamentManager.GetTournamentGame(t);
                         if(tmp != null)
@@ -274,7 +275,7 @@ namespace DiscordRP
                             }
                         TournamentGame tmp = null;
                         latestTournamentList = new List<TournamentGame>();
-                        foreach (Town t in Town.All)
+                        foreach (Town t in Town.AllTowns)
                         {
                             tmp = Campaign.Current.TournamentManager.GetTournamentGame(t);
                             if (tmp != null)
@@ -677,12 +678,19 @@ namespace DiscordRP
 
     public class config
     {
-        public String[] ConfigInformation;
-        public String selectedName;
-        public String inCampaignAsPlayer;
-        public String inCampaign;
-        public String Loading;
-        public String inMenu;
+        public String[] ConfigInformation = { "&p indicates in game 'playername'." ,
+                "Name Index : Game Name - select the way you want to show game name at Discord. Type the desired number to 'selectedName' section." ,
+                "0 : Mount & Blade II: Bannerlord," ,
+                "1 : Mount&Blade II: Bannerlord," ,
+                "2 : M & B II: Bannerlord," ,
+                "3 : M&B II: Bannerlord," ,
+                "4 : Bannerlord"
+            };
+        public String selectedName = "0";
+        public String inCampaignAsPlayer = "In Campaign";
+        public String inCampaign = "In Campaign as &p";
+        public String Loading = "Loading...";
+        public String inMenu = "In Menu";
  //       public String fightingAgainst;
  //       public String conversation;
  //      public String inLocation;
